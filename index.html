@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outlaws Moreuil — Live Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tomorrow:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black: #0a0a0a;
+    --panel: #141414;
+    --panel-2: #1c1c1c;
+    --line: #2a2a2a;
+    --blue: #00ade9;
+    --blue-dim: #0a4a63;
+    --sand: #f3cf95;
+    --gray: #9a9a9a;
+    --white: #f5f5f5;
+    --red: #e6493f;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  body{
+    background:
+      radial-gradient(ellipse 900px 600px at 85% -10%, rgba(0,173,233,0.12), transparent 60%),
+      var(--black);
+    color:var(--white);
+    font-family:'Tomorrow', sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  .mascot-watermark{
+    position:fixed;
+    top:-5%;
+    right:-12%;
+    width:60vw;
+    max-width:820px;
+    opacity:0.05;
+    pointer-events:none;
+    z-index:0;
+    filter:grayscale(1);
+  }
+
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:1100px;
+    margin:0 auto;
+    padding:24px 20px 80px;
+  }
+
+  /* ===== TOPBAR ===== */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand img{height:44px;width:auto;display:block;}
+  .brand-text{
+    font-size:11px;
+    letter-spacing:0.18em;
+    color:var(--gray);
+    text-transform:uppercase;
+  }
+  .brand-text strong{
+    display:block;
+    color:var(--white);
+    font-size:14px;
+    letter-spacing:0.08em;
+    font-weight:700;
+  }
+
+  .live-badge{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:rgba(230,73,63,0.1);
+    border:1px solid rgba(230,73,63,0.4);
+    padding:6px 14px;
+    border-radius:100px;
+  }
+  .live-dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--red);
+    box-shadow:0 0 0 0 rgba(230,73,63,0.6);
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(230,73,63,0.55);}
+    70%{box-shadow:0 0 0 9px rgba(230,73,63,0);}
+    100%{box-shadow:0 0 0 0 rgba(230,73,63,0);}
+  }
+  .live-badge span{
+    font-size:11px;
+    letter-spacing:0.16em;
+    font-weight:700;
+    color:var(--red);
+  }
+  .sim-tag{
+    font-size:10px;
+    letter-spacing:0.14em;
+    color:var(--gray);
+    border:1px dashed var(--line);
+    padding:5px 10px;
+    border-radius:6px;
+  }
+
+  /* ===== SCOREBOARD ===== */
+  .scoreboard{
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:28px 24px 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  .scoreboard::before{
+    content:'';
+    position:absolute;
+    top:0;left:0;right:0;
+    height:3px;
+    background:linear-gradient(90deg, var(--blue), var(--sand));
+  }
+
+  .match-meta{
+    text-align:center;
+    font-size:11px;
+    letter-spacing:0.16em;
+    color:var(--gray);
+    text-transform:uppercase;
+    margin-bottom:18px;
+  }
+  .match-meta b{color:var(--sand);}
+
+  .score-row{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:12px;
+  }
+
+  .team{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    text-align:center;
+  }
+  .team-crest{
+    width:76px;height:76px;
+    border-radius:14px;
+    background:var(--black);
+    border:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px;
+  }
+  .team-crest img{width:100%;height:100%;object-fit:contain;}
+  .team-crest.generic{
+    font-family:'Space Mono', monospace;
+    font-weight:700;
+    font-size:22px;
+    color:var(--gray);
+  }
+  .team-name{
+    font-size:13px;
+    letter-spacing:0.06em;
+    font-weight:600;
+    text-transform:uppercase;
+  }
+  .team-name.opponent{color:var(--gray);}
+
+  .score-center{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+  .score-digits{
+    font-family:'Space Mono', monospace;
+    font-weight:700;
+    font-size:clamp(38px, 8vw, 64px);
+    display:flex;
+    align-items:center;
+    gap:14px;
+    line-height:1;
+  }
+  .score-digits .d{
+    min-width:1ch;
+    color:var(--white);
+  }
+  .score-digits .sep{color:var(--blue);font-size:0.6em;}
+  .period-clock{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--sand);
+    letter-spacing:0.1em;
+    background:rgba(243,207,149,0.08);
+    border:1px solid rgba(243,207,149,0.25);
+    padding:4px 12px;
+    border-radius:100px;
+  }
+
+  /* ===== SECTIONS ===== */
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    margin-top:20px;
+  }
+  @media (max-width:700px){
+    .grid{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .panel-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .panel-head .ico{
+    width:6px;height:6px;
+    border-radius:1px;
+  }
+  .panel-head.goals .ico{background:var(--blue);}
+  .panel-head.fouls .ico{background:var(--sand);}
+  .panel-head h2{
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    font-weight:700;
+    color:var(--white);
+  }
+  .panel-body{
+    padding:8px 0;
+    min-height:120px;
+  }
+  .empty-state{
+    padding:28px 18px;
+    text-align:center;
+    color:var(--gray);
+    font-size:12px;
+    letter-spacing:0.04em;
+  }
+
+  .event-row{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:12px 18px;
+    border-bottom:1px solid var(--line);
+    animation:slideIn 0.35s ease;
+  }
+  .event-row:last-child{border-bottom:none;}
+  @keyframes slideIn{
+    from{opacity:0; transform:translateY(-6px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .event-time{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color:var(--gray);
+    min-width:40px;
+    padding-top:2px;
+  }
+  .event-time.blue{color:var(--blue);}
+  .event-time.sand{color:var(--sand);}
+  .event-main{flex:1;}
+  .event-player{
+    font-size:13px;
+    font-weight:600;
+    color:var(--white);
+  }
+  .event-sub{
+    font-size:11px;
+    color:var(--gray);
+    margin-top:2px;
+  }
+  .badge{
+    font-size:9px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    padding:2px 7px;
+    border-radius:4px;
+    font-weight:700;
+  }
+  .badge.blue{background:rgba(0,173,233,0.15); color:var(--blue);}
+  .badge.sand{background:rgba(243,207,149,0.15); color:var(--sand);}
+  .badge.red{background:rgba(230,73,63,0.15); color:var(--red);}
+
+  footer{
+    text-align:center;
+    margin-top:36px;
+    font-size:10px;
+    letter-spacing:0.1em;
+    color:#555;
+  }
+</style>
+</head>
+<body>
+
+<img class="mascot-watermark" src="img/mascot.png" alt="">
+
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <img src="img/primary.png" alt="Outlaws Moreuil">
+      <div class="brand-text">Rink Hockey<strong>Outlaws Moreuil</strong></div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div class="sim-tag" id="simTag">MODE SIMULATION</div>
+      <div class="live-badge"><div class="live-dot"></div><span>En direct</span></div>
+    </div>
+  </div>
+
+  <div class="scoreboard">
+    <div class="match-meta">Championnat Régional — Journée 12 · <b>Patinoire de Moreuil</b></div>
+    <div class="score-row">
+      <div class="team">
+        <div class="team-crest"><img src="img/primary.png" alt="Outlaws"></div>
+        <div class="team-name">Outlaws Moreuil</div>
+      </div>
+      <div class="score-center">
+        <div class="score-digits">
+          <span class="d" id="scoreHome">0</span>
+          <span class="sep">—</span>
+          <span class="d" id="scoreAway">0</span>
+        </div>
+        <div class="period-clock" id="clock">1ère période · 00:00</div>
+      </div>
+      <div class="team">
+        <div class="team-crest generic" id="awayCrest">CO</div>
+        <div class="team-name opponent" id="awayName">Corsaires</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-head goals"><div class="ico"></div><h2>Buteurs</h2></div>
+      <div class="panel-body" id="goalsList">
+        <div class="empty-state">Aucun but pour le moment</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head fouls"><div class="ico"></div><h2>Fautes</h2></div>
+      <div class="panel-body" id="foulsList">
+        <div class="empty-state">Aucune faute pour le moment</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>OUTLAWS-MOREUIL.FR · PAGE DE TEST — DONNÉES SIMULÉES, NON CONNECTÉE À ROLSKANET</footer>
+</div>
+
+<script>
+/* ============================================================
+   SIMULATION INTERNE
+   Ce bloc génère de faux événements de match toutes les
+   quelques secondes pour valider l'affichage.
+   → À remplacer plus tard par la lecture des données réelles
+     (relayées depuis le script Tampermonkey via Firebase).
+   ============================================================ */
+
+const state = { home: 0, away: 0, seconds: 0, period: 1 };
+
+const players = ["T. Lefebvre","M. Dubuisson","A. Caron","R. Sénéchal","J. Vasseur","N. Poirier"];
+const assists  = ["T. Lefebvre","M. Dubuisson","A. Caron","R. Sénéchal","J. Vasseur"];
+const sanctions = ["Faute mineure (2 min)","Faute technique (2 min)","Faute majeure (5 min)","Faute de banc (2 min)"];
+
+const script = [
+  {t: 3,  type:"goal",  team:"home", scorer:0, assist:2},
+  {t: 7,  type:"foul",  team:"away", player: 4, sanction: 0},
+  {t: 12, type:"goal",  team:"away"},
+  {t: 16, type:"foul",  team:"home", player: 1, sanction: 1},
+  {t: 21, type:"goal",  team:"home", scorer:3, assist:null},
+  {t: 27, type:"foul",  team:"away", player: 0, sanction: 2},
+  {t: 33, type:"goal",  team:"home", scorer:5, assist:4},
+];
+
+let step = 0;
+
+function fmtClock(s){
+  const m = Math.floor(s/60).toString().padStart(2,'0');
+  const ss = (s%60).toString().padStart(2,'0');
+  return `${m}:${ss}`;
+}
+
+function pushGoal(ev){
+  const list = document.getElementById('goalsList');
+  if(list.querySelector('.empty-state')) list.innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  const teamBadge = ev.team === 'home'
+    ? '<span class="badge blue">Outlaws</span>'
+    : '<span class="badge sand">Adv.</span>';
+  const scorerName = ev.team === 'home' ? players[ev.scorer] : 'Joueur adverse';
+  const assistTxt = (ev.team === 'home' && ev.assist !== null)
+    ? `Passe décisive : ${assists[ev.assist]}` : '';
+  row.innerHTML = `
+    <div class="event-time blue">${fmtClock(ev.t*10)}</div>
+    <div class="event-main">
+      <div class="event-player">${scorerName} ${teamBadge}</div>
+      <div class="event-sub">${assistTxt}</div>
+    </div>`;
+  list.prepend(row);
+}
+
+function pushFoul(ev){
+  const list = document.getElementById('foulsList');
+  if(list.querySelector('.empty-state')) list.innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  const teamBadge = ev.team === 'home'
+    ? '<span class="badge blue">Outlaws</span>'
+    : '<span class="badge sand">Adv.</span>';
+  const playerName = ev.team === 'home' ? players[ev.player] : 'Joueur adverse';
+  row.innerHTML = `
+    <div class="event-time sand">${fmtClock(ev.t*10)}</div>
+    <div class="event-main">
+      <div class="event-player">${playerName} ${teamBadge}</div>
+      <div class="event-sub">${sanctions[ev.sanction]}</div>
+    </div>`;
+  list.prepend(row);
+}
+
+function tick(){
+  state.seconds += 1;
+  document.getElementById('clock').textContent =
+    `${state.period === 1 ? '1ère' : '2ème'} période · ${fmtClock(state.seconds)}`;
+
+  if(step < script.length && state.seconds >= script[step].t){
+    const ev = script[step];
+    if(ev.type === 'goal'){
+      if(ev.team === 'home'){ state.home++; document.getElementById('scoreHome').textContent = state.home; }
+      else { state.away++; document.getElementById('scoreAway').textContent = state.away; }
+      pushGoal(ev);
+    } else {
+      pushFoul(ev);
+    }
+    step++;
+  }
+
+  if(state.seconds >= 40){
+    clearInterval(timer);
+    document.getElementById('simTag').textContent = 'SIMULATION TERMINÉE';
+  }
+}
+
+const timer = setInterval(tick, 1000);
+</script>
+
+</body>
+</html>
