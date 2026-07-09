@@ -324,6 +324,86 @@
   .badge.sand{background:rgba(243,207,149,0.15); color:var(--sand);}
   .badge.red{background:rgba(230,73,63,0.15); color:var(--red);}
 
+  .panel-head.comp .ico{background:var(--gray);}
+
+  .comp-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+  }
+  @media (max-width:700px){
+    .comp-grid{grid-template-columns:1fr;}
+  }
+  .comp-col{
+    padding:14px 18px 18px;
+  }
+  .comp-col:first-child{
+    border-right:1px solid var(--line);
+  }
+  @media (max-width:700px){
+    .comp-col:first-child{
+      border-right:none;
+      border-bottom:1px solid var(--line);
+    }
+  }
+  .comp-col-title{
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--gray);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  .comp-player{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:6px 0;
+  }
+  .comp-number{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--gray);
+    min-width:24px;
+    text-align:right;
+  }
+  .comp-name{
+    font-size:13px;
+    color:var(--white);
+    flex:1;
+  }
+  .comp-tags{
+    display:flex;
+    gap:4px;
+  }
+  .comp-tag{
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:0.04em;
+    padding:1px 5px;
+    border-radius:4px;
+  }
+  .comp-tag.g{background:rgba(0,173,233,0.15); color:var(--blue);}
+  .comp-tag.c{background:rgba(243,207,149,0.18); color:var(--sand);}
+  .comp-tag.a{background:rgba(154,154,154,0.18); color:var(--gray);}
+  .comp-staff-title{
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--gray);
+    margin:10px 0 4px;
+    padding-top:8px;
+    border-top:1px solid var(--line);
+  }
+  .comp-staff-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--gray);
+    padding:3px 0;
+  }
+  .comp-staff-row .role{color:#666;}
+
   footer{
     text-align:center;
     margin-top:36px;
@@ -379,6 +459,20 @@
       <div class="panel-head fouls"><div class="ico"></div><h2>Fautes</h2></div>
       <div class="panel-body" id="foulsList">
         <div class="empty-state">Aucune faute pour le moment</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px;">
+    <div class="panel-head comp"><div class="ico"></div><h2>Composition des équipes</h2></div>
+    <div class="comp-grid">
+      <div class="comp-col">
+        <div class="comp-col-title" id="compHomeTitle">Outlaws Moreuil</div>
+        <div id="compHomeList"><div class="empty-state">Composition non disponible</div></div>
+      </div>
+      <div class="comp-col">
+        <div class="comp-col-title" id="compAwayTitle">Adversaire</div>
+        <div id="compAwayList"><div class="empty-state">Composition non disponible</div></div>
       </div>
     </div>
   </div>
@@ -492,6 +586,52 @@ function renderEvents(evenements){
     : '<div class="empty-state">Aucune faute pour le moment</div>';
 }
 
+function renderCompositionColumn(listEl, titleEl, teamData, fallbackTitle){
+  titleEl.textContent = teamData?.nom || fallbackTitle;
+  const joueurs = teamData?.joueurs || [];
+  const staff = teamData?.staff || [];
+
+  if(!joueurs.length && !staff.length){
+    listEl.innerHTML = '<div class="empty-state">Composition non disponible</div>';
+    return;
+  }
+
+  let html = joueurs.map(j => {
+    const tags = [
+      j.gardien ? '<span class="comp-tag g">G</span>' : '',
+      j.capitaine ? '<span class="comp-tag c">C</span>' : '',
+      j.assistant ? '<span class="comp-tag a">A</span>' : '',
+    ].join('');
+    return `
+      <div class="comp-player">
+        <div class="comp-number">${j.numero || '—'}</div>
+        <div class="comp-name">${j.nom || ''}</div>
+        <div class="comp-tags">${tags}</div>
+      </div>`;
+  }).join('');
+
+  if(staff.length){
+    html += '<div class="comp-staff-title">Staff</div>';
+    html += staff.map(s => `
+      <div class="comp-staff-row">
+        <span>${s.nom || ''}</span>
+        <span class="role">${s.role || ''}</span>
+      </div>`).join('');
+  }
+
+  listEl.innerHTML = html;
+}
+
+function renderComposition(composition){
+  if(!composition){
+    renderCompositionColumn(document.getElementById('compHomeList'), document.getElementById('compHomeTitle'), null, 'Outlaws Moreuil');
+    renderCompositionColumn(document.getElementById('compAwayList'), document.getElementById('compAwayTitle'), null, 'Adversaire');
+    return;
+  }
+  renderCompositionColumn(document.getElementById('compHomeList'), document.getElementById('compHomeTitle'), composition.domicile, 'Outlaws Moreuil');
+  renderCompositionColumn(document.getElementById('compAwayList'), document.getElementById('compAwayTitle'), composition.exterieur, 'Adversaire');
+}
+
 function setStatusTag(text, ok){
   const tag = document.getElementById('simTag');
   tag.textContent = text;
@@ -513,6 +653,7 @@ async function pollFirebase(){
     }
     renderScoreboard(payload.score);
     renderEvents(payload.evenements || []);
+    renderComposition(payload.composition);
     setStatusTag(payload.connexion === 'manuel' ? 'MODE MANUEL' : 'CONNECTÉ', true);
   } catch(err){
     setStatusTag('CONNEXION INDISPONIBLE', false);
@@ -538,6 +679,29 @@ function runSimulation(){
     'CHAMPIONNAT RÉGIONAL — JOURNÉE 12 · <b>PATINOIRE DE MOREUIL</b>';
   document.getElementById('awayName').textContent = 'Corsaires';
   document.getElementById('awayCrest').textContent = 'CO';
+
+  renderComposition({
+    domicile: {
+      nom: 'Outlaws Moreuil',
+      joueurs: [
+        {numero:1, nom:'M. Dubuisson', gardien:true},
+        {numero:9, nom:'T. Lefebvre', capitaine:true},
+        {numero:4, nom:'R. Sénéchal', assistant:true},
+        {numero:7, nom:'A. Caron'},
+        {numero:11, nom:'J. Vasseur'},
+        {numero:23, nom:'N. Poirier'},
+      ],
+      staff: [{nom:'P. Martin', role:'Entraîneur'}],
+    },
+    exterieur: {
+      nom: 'Corsaires',
+      joueurs: [
+        {numero:30, nom:'Joueur adverse', gardien:true},
+        {numero:8, nom:'Joueur adverse', capitaine:true},
+      ],
+      staff: [],
+    },
+  });
 
   const timer = setInterval(() => {
     state.seconds++;
