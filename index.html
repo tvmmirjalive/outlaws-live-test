@@ -24,21 +24,18 @@
   *{margin:0;padding:0;box-sizing:border-box;}
 
   body{
-    background:
-      radial-gradient(ellipse 900px 600px at 85% -10%, rgba(0,173,233,0.12), transparent 60%),
-      var(--black);
+    background:transparent;
     color:var(--white);
     font-family:'Tomorrow', sans-serif;
-    min-height:100vh;
     overflow-x:hidden;
   }
 
   .mascot-watermark{
-    position:fixed;
-    top:-5%;
-    right:-12%;
-    width:60vw;
-    max-width:820px;
+    position:absolute;
+    top:-4%;
+    right:-6%;
+    width:40%;
+    max-width:420px;
     opacity:0.05;
     pointer-events:none;
     z-index:0;
@@ -50,36 +47,22 @@
     z-index:1;
     max-width:1100px;
     margin:0 auto;
-    padding:24px 20px 80px;
+    padding:20px;
+    background:
+      radial-gradient(ellipse 700px 400px at 85% -10%, rgba(0,173,233,0.10), transparent 60%),
+      var(--black);
+    border-radius:18px;
+    border:1px solid var(--line);
+    overflow:hidden;
   }
 
-  /* ===== TOPBAR ===== */
-  .topbar{
+  /* ===== MINI TOPBAR ===== */
+  .mini-topbar{
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    padding-bottom:20px;
-    border-bottom:1px solid var(--line);
-    margin-bottom:28px;
-  }
-  .brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-  }
-  .brand img{height:44px;width:auto;display:block;}
-  .brand-text{
-    font-size:11px;
-    letter-spacing:0.18em;
-    color:var(--gray);
-    text-transform:uppercase;
-  }
-  .brand-text strong{
-    display:block;
-    color:var(--white);
-    font-size:14px;
-    letter-spacing:0.08em;
-    font-weight:700;
+    justify-content:flex-end;
+    gap:10px;
+    margin-bottom:14px;
   }
 
   .live-badge{
@@ -323,15 +306,9 @@
 
 <div class="wrap">
 
-  <div class="topbar">
-    <div class="brand">
-      <img src="img/primary.png" alt="Outlaws Moreuil">
-      <div class="brand-text">Rink Hockey<strong>Outlaws Moreuil</strong></div>
-    </div>
-    <div style="display:flex; gap:10px; align-items:center;">
-      <div class="sim-tag" id="simTag">MODE SIMULATION</div>
-      <div class="live-badge"><div class="live-dot"></div><span>En direct</span></div>
-    </div>
+  <div class="mini-topbar">
+    <div class="sim-tag" id="simTag">MODE SIMULATION</div>
+    <div class="live-badge"><div class="live-dot"></div><span>En direct</span></div>
   </div>
 
   <div class="scoreboard">
