@@ -388,17 +388,7 @@
 
 <script>
 /* ============================================================
-   SIMULATION INTERNE
-   Ce bloc génère de faux événements de match toutes les
-   quelques secondes pour valider l'affichage.
-   → À remplacer plus tard par la lecture des données réelles
-     (relayées depuis le script Tampermonkey via Firebase).
-   ============================================================ */
-
-/* ============================================================
    LECTEUR YOUTUBE LIVE
-   Remplace YOUTUBE_CHANNEL_ID ci-dessous par l'ID de la chaîne
-   du club, puis recharge la page.
    ============================================================ */
 const YOUTUBE_CHANNEL_ID = "UCoy5ZPgx8kWQBB0Aqns8Ypg";
 
@@ -421,92 +411,179 @@ const YOUTUBE_CHANNEL_ID = "UCoy5ZPgx8kWQBB0Aqns8Ypg";
   }
 })();
 
-const state = { home: 0, away: 0, seconds: 0, period: 1 };
+/* ============================================================
+   SOURCE DES DONNÉES
+   - MODE "simulation" : rejoue un faux match (pour tester l'affichage
+     sans dépendre de Firebase)
+   - MODE "firebase"   : lit les vraies données envoyées par
+     proxy_server.py (extension Chrome + mode manuel confondus)
+   ============================================================ */
+const DATA_MODE = "firebase"; // "simulation" ou "firebase"
 
-const players = ["T. Lefebvre","M. Dubuisson","A. Caron","R. Sénéchal","J. Vasseur","N. Poirier"];
-const assists  = ["T. Lefebvre","M. Dubuisson","A. Caron","R. Sénéchal","J. Vasseur"];
-const sanctions = ["Faute mineure (2 min)","Faute technique (2 min)","Faute majeure (5 min)","Faute de banc (2 min)"];
+// ⚙️ Même URL que FIREBASE_URL dans proxy_server.py
+const FIREBASE_URL = "https://outlaws-live-default-rtdb.europe-west1.firebasedatabase.app";
+const FIREBASE_MATCH_KEY = "match-actuel";
+const POLL_INTERVAL_MS = 5000;
 
-const script = [
-  {t: 3,  type:"goal",  team:"home", scorer:0, assist:2},
-  {t: 7,  type:"foul",  team:"away", player: 4, sanction: 0},
-  {t: 12, type:"goal",  team:"away"},
-  {t: 16, type:"foul",  team:"home", player: 1, sanction: 1},
-  {t: 21, type:"goal",  team:"home", scorer:3, assist:null},
-  {t: 27, type:"foul",  team:"away", player: 0, sanction: 2},
-  {t: 33, type:"goal",  team:"home", scorer:5, assist:4},
-];
-
-let step = 0;
-
-function fmtClock(s){
-  const m = Math.floor(s/60).toString().padStart(2,'0');
-  const ss = (s%60).toString().padStart(2,'0');
-  return `${m}:${ss}`;
+function fmtClock(totalSeconds){
+  const m = Math.floor(totalSeconds/60).toString().padStart(2,'0');
+  const s = (totalSeconds%60).toString().padStart(2,'0');
+  return `${m}:${s}`;
 }
 
-function pushGoal(ev){
-  const list = document.getElementById('goalsList');
-  if(list.querySelector('.empty-state')) list.innerHTML = '';
-  const row = document.createElement('div');
-  row.className = 'event-row';
-  const teamBadge = ev.team === 'home'
+/* ---------- Rendu commun (utilisé par les deux modes) ---------- */
+
+function renderScoreboard({ domicile, exterieur, statut, periode, journee, categorie, lieu }){
+  document.getElementById('scoreHome').textContent = domicile.score;
+  document.getElementById('scoreAway').textContent = exterieur.score;
+  document.getElementById('awayName').textContent = exterieur.nom || 'Adversaire';
+  document.getElementById('awayCrest').textContent = (exterieur.abbr || exterieur.nom || '??').slice(0,3).toUpperCase();
+
+  const meta = [categorie, journee].filter(Boolean).join(' — ');
+  const metaFull = [meta, lieu].filter(Boolean).join(' · ');
+  document.querySelector('.match-meta').innerHTML = metaFull
+    ? metaFull.replace(lieu || '\u0000', `<b>${lieu}</b>`)
+    : '';
+
+  const clockEl = document.getElementById('clock');
+  if(statut === 'À venir'){ clockEl.textContent = 'À venir'; }
+  else if(statut === 'Terminé'){ clockEl.textContent = 'Terminé'; }
+  else if(statut === 'Pause'){ clockEl.textContent = `${periode} période · Pause`; }
+  else { clockEl.textContent = periode ? `${periode} période · En cours` : 'En cours'; }
+}
+
+function eventRowHTML(ev, kind){
+  const teamBadge = ev.est_outlaws
     ? '<span class="badge blue">Outlaws</span>'
     : '<span class="badge sand">Adv.</span>';
-  const scorerName = ev.team === 'home' ? players[ev.scorer] : 'Joueur adverse';
-  const assistTxt = (ev.team === 'home' && ev.assist !== null)
-    ? `Passe décisive : ${assists[ev.assist]}` : '';
-  row.innerHTML = `
-    <div class="event-time blue">${fmtClock(ev.t*10)}</div>
-    <div class="event-main">
-      <div class="event-player">${scorerName} ${teamBadge}</div>
-      <div class="event-sub">${assistTxt}</div>
+  const timeClass = kind === 'goal' ? 'blue' : 'sand';
+  let title, sub;
+  if(kind === 'goal'){
+    title = `${ev.joueur || 'Joueur'}${ev.numero ? ' #'+ev.numero : ''} ${teamBadge}`;
+    const assistants = (ev.assistants || []).filter(Boolean);
+    sub = ev.csc ? 'But contre son camp'
+      : (assistants.length ? `Passe décisive : ${assistants.join(', ')}` : '');
+  } else {
+    title = `${ev.joueur || 'Joueur'}${ev.numero ? ' #'+ev.numero : ''} ${teamBadge}`;
+    sub = [ev.sanction, ev.duree_min ? `${ev.duree_min} min` : null].filter(Boolean).join(' · ');
+  }
+  return `
+    <div class="event-row">
+      <div class="event-time ${timeClass}">${ev.temps || ''}</div>
+      <div class="event-main">
+        <div class="event-player">${title}</div>
+        <div class="event-sub">${sub}</div>
+      </div>
     </div>`;
-  list.prepend(row);
 }
 
-function pushFoul(ev){
-  const list = document.getElementById('foulsList');
-  if(list.querySelector('.empty-state')) list.innerHTML = '';
-  const row = document.createElement('div');
-  row.className = 'event-row';
-  const teamBadge = ev.team === 'home'
-    ? '<span class="badge blue">Outlaws</span>'
-    : '<span class="badge sand">Adv.</span>';
-  const playerName = ev.team === 'home' ? players[ev.player] : 'Joueur adverse';
-  row.innerHTML = `
-    <div class="event-time sand">${fmtClock(ev.t*10)}</div>
-    <div class="event-main">
-      <div class="event-player">${playerName} ${teamBadge}</div>
-      <div class="event-sub">${sanctions[ev.sanction]}</div>
-    </div>`;
-  list.prepend(row);
+function renderEvents(evenements){
+  const goals = evenements.filter(e => e.type === 'BUT');
+  const fouls = evenements.filter(e => e.type === 'PENALITE');
+
+  const goalsList = document.getElementById('goalsList');
+  goalsList.innerHTML = goals.length
+    ? goals.map(e => eventRowHTML(e, 'goal')).join('')
+    : '<div class="empty-state">Aucun but pour le moment</div>';
+
+  const foulsList = document.getElementById('foulsList');
+  foulsList.innerHTML = fouls.length
+    ? fouls.map(e => eventRowHTML(e, 'foul')).join('')
+    : '<div class="empty-state">Aucune faute pour le moment</div>';
 }
 
-function tick(){
-  state.seconds += 1;
-  document.getElementById('clock').textContent =
-    `${state.period === 1 ? '1ère' : '2ème'} période · ${fmtClock(state.seconds)}`;
+function setStatusTag(text, ok){
+  const tag = document.getElementById('simTag');
+  tag.textContent = text;
+  tag.style.borderColor = ok ? 'rgba(0,173,233,0.4)' : '';
+  tag.style.color = ok ? 'var(--blue)' : '';
+}
 
-  if(step < script.length && state.seconds >= script[step].t){
-    const ev = script[step];
-    if(ev.type === 'goal'){
-      if(ev.team === 'home'){ state.home++; document.getElementById('scoreHome').textContent = state.home; }
-      else { state.away++; document.getElementById('scoreAway').textContent = state.away; }
-      pushGoal(ev);
-    } else {
-      pushFoul(ev);
+/* ---------- Mode Firebase (réel) ---------- */
+
+async function pollFirebase(){
+  try{
+    const res = await fetch(`${FIREBASE_URL}/matches/${FIREBASE_MATCH_KEY}.json`, { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const payload = await res.json();
+
+    if(!payload){
+      setStatusTag('EN ATTENTE DU MATCH', false);
+      return;
     }
-    step++;
-  }
-
-  if(state.seconds >= 40){
-    clearInterval(timer);
-    document.getElementById('simTag').textContent = 'SIMULATION TERMINÉE';
+    renderScoreboard(payload.score);
+    renderEvents(payload.evenements || []);
+    setStatusTag(payload.connexion === 'manuel' ? 'MODE MANUEL' : 'CONNECTÉ', true);
+  } catch(err){
+    setStatusTag('CONNEXION INDISPONIBLE', false);
   }
 }
 
-const timer = setInterval(tick, 1000);
+/* ---------- Mode simulation (test sans Firebase) ---------- */
+
+function runSimulation(){
+  const state = { home: 0, away: 0, seconds: 0 };
+  const players = ["T. Lefebvre","M. Dubuisson","A. Caron","R. Sénéchal","J. Vasseur","N. Poirier"];
+  const sanctions = ["Faute mineure","Faute technique","Faute majeure","Faute de banc"];
+  const script = [
+    {t: 3,  type:"BUT",      team:"home", scorer:0, assist:2},
+    {t: 7,  type:"PENALITE", team:"away", player:4, sanction:0},
+    {t: 12, type:"BUT",      team:"away", scorer:0},
+    {t: 16, type:"PENALITE", team:"home", player:1, sanction:1},
+    {t: 21, type:"BUT",      team:"home", scorer:3, assist:null},
+  ];
+  let step = 0;
+  const evenements = [];
+  document.querySelector('.match-meta').innerHTML =
+    'CHAMPIONNAT RÉGIONAL — JOURNÉE 12 · <b>PATINOIRE DE MOREUIL</b>';
+  document.getElementById('awayName').textContent = 'Corsaires';
+  document.getElementById('awayCrest').textContent = 'CO';
+
+  const timer = setInterval(() => {
+    state.seconds++;
+    const clockEl = document.getElementById('clock');
+    clockEl.textContent = `1ère période · En cours`;
+
+    if(step < script.length && state.seconds >= script[step].t){
+      const ev = script[step];
+      const isHome = ev.team === 'home';
+      if(ev.type === 'BUT'){
+        if(isHome) state.home++; else state.away++;
+        document.getElementById('scoreHome').textContent = state.home;
+        document.getElementById('scoreAway').textContent = state.away;
+        evenements.unshift({
+          type:'BUT', temps: fmtClock(ev.t*10), est_outlaws:isHome,
+          joueur: isHome ? players[ev.scorer] : 'Joueur adverse',
+          assistants: isHome && ev.assist!=null ? [players[ev.assist]] : [],
+        });
+      } else {
+        evenements.unshift({
+          type:'PENALITE', temps: fmtClock(ev.t*10), est_outlaws:isHome,
+          joueur: isHome ? players[ev.player] : 'Joueur adverse',
+          sanction: sanctions[ev.sanction], duree_min: 2,
+        });
+      }
+      renderEvents(evenements);
+      step++;
+    }
+
+    if(state.seconds >= 30){
+      clearInterval(timer);
+      setStatusTag('SIMULATION TERMINÉE', false);
+    }
+  }, 1000);
+}
+
+/* ---------- Démarrage ---------- */
+
+if(DATA_MODE === 'firebase'){
+  setStatusTag('CONNEXION…', false);
+  pollFirebase();
+  setInterval(pollFirebase, POLL_INTERVAL_MS);
+} else {
+  setStatusTag('MODE SIMULATION', false);
+  runSimulation();
+}
 </script>
 
 </body>
