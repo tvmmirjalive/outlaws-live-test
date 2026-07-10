@@ -73,12 +73,22 @@
     border:1px solid rgba(230,73,63,0.4);
     padding:6px 14px;
     border-radius:100px;
+    transition:background 0.3s, border-color 0.3s;
+  }
+  .live-badge.ended{
+    background:rgba(154,154,154,0.1);
+    border-color:rgba(154,154,154,0.35);
   }
   .live-dot{
     width:8px;height:8px;border-radius:50%;
     background:var(--red);
     box-shadow:0 0 0 0 rgba(230,73,63,0.6);
     animation:pulse 1.6s infinite;
+  }
+  .live-badge.ended .live-dot{
+    background:var(--gray);
+    animation:none;
+    box-shadow:none;
   }
   @keyframes pulse{
     0%{box-shadow:0 0 0 0 rgba(230,73,63,0.55);}
@@ -90,6 +100,9 @@
     letter-spacing:0.16em;
     font-weight:700;
     color:var(--red);
+  }
+  .live-badge.ended span{
+    color:var(--gray);
   }
   .sim-tag{
     font-size:10px;
@@ -421,7 +434,7 @@
 
   <div class="mini-topbar">
     <div class="sim-tag" id="simTag">MODE SIMULATION</div>
-    <div class="live-badge"><div class="live-dot"></div><span>En direct</span></div>
+    <div class="live-badge" id="liveBadge"><div class="live-dot" id="liveDot"></div><span id="liveLabel">En direct</span></div>
   </div>
 
   <div class="video-panel" id="videoPanel"></div>
@@ -632,6 +645,24 @@ function renderComposition(composition){
   renderCompositionColumn(document.getElementById('compAwayList'), document.getElementById('compAwayTitle'), composition.exterieur, 'Adversaire');
 }
 
+function updateLiveBadge(statut, majA){
+  const badge = document.getElementById('liveBadge');
+  const label = document.getElementById('liveLabel');
+  const deuxHeures = 2 * 60 * 60;
+  const ageSecondes = majA ? (Date.now()/1000 - majA) : Infinity;
+
+  if(statut === 'Terminé' && ageSecondes < deuxHeures){
+    badge.classList.add('ended');
+    label.textContent = 'Terminé';
+  } else if(statut === 'Terminé'){
+    badge.classList.add('ended');
+    label.textContent = 'Dernier match';
+  } else {
+    badge.classList.remove('ended');
+    label.textContent = 'En direct';
+  }
+}
+
 function setStatusTag(text, ok){
   const tag = document.getElementById('simTag');
   tag.textContent = text;
@@ -654,6 +685,7 @@ async function pollFirebase(){
     renderScoreboard(payload.score);
     renderEvents(payload.evenements || []);
     renderComposition(payload.composition);
+    updateLiveBadge(payload.score?.statut, payload.maj_a);
     setStatusTag(payload.connexion === 'manuel' ? 'MODE MANUEL' : 'CONNECTÉ', true);
   } catch(err){
     setStatusTag('CONNEXION INDISPONIBLE', false);
