@@ -443,8 +443,8 @@
     <div class="match-meta">Championnat Régional — Journée 12 · <b>Patinoire de Moreuil</b></div>
     <div class="score-row">
       <div class="team">
-        <div class="team-crest"><img src="img/primary.png" alt="Outlaws"></div>
-        <div class="team-name">Outlaws Moreuil</div>
+        <div class="team-crest" id="homeCrest"><img src="img/primary.png" alt="Outlaws"></div>
+        <div class="team-name" id="homeName">Outlaws Moreuil</div>
       </div>
       <div class="score-center">
         <div class="score-digits">
@@ -490,7 +490,7 @@
     </div>
   </div>
 
-  <footer>OUTLAWS-MOREUIL.FR · PAGE DE TEST — DONNÉES SIMULÉES, NON CONNECTÉE À ROLSKANET</footer>
+  <footer id="footerStatus">OUTLAWS-MOREUIL.FR</footer>
 </div>
 
 <script>
@@ -541,10 +541,46 @@ function fmtClock(totalSeconds){
 /* ---------- Rendu commun (utilisé par les deux modes) ---------- */
 
 function renderScoreboard({ domicile, exterieur, statut, periode, journee, categorie, lieu }){
-  document.getElementById('scoreHome').textContent = domicile.score;
-  document.getElementById('scoreAway').textContent = exterieur.score;
-  document.getElementById('awayName').textContent = exterieur.nom || 'Adversaire';
-  document.getElementById('awayCrest').textContent = (exterieur.abbr || exterieur.nom || '??').slice(0,3).toUpperCase();
+  // Outlaws n'est pas toujours l'équipe "domicile" côté rolskanet (elle peut
+  // jouer à l'extérieur) — on se base donc sur l'indicateur est_outlaws de
+  // chaque équipe pour savoir laquelle afficher à gauche avec le logo du
+  // club, plutôt que de supposer que domicile = Outlaws.
+  const homeCrest = document.getElementById('homeCrest');
+  const homeName = document.getElementById('homeName');
+  const awayCrest = document.getElementById('awayCrest');
+  const awayName = document.getElementById('awayName');
+
+  let outlaws = null, adversaire = null;
+  if(domicile.est_outlaws){ outlaws = domicile; adversaire = exterieur; }
+  else if(exterieur.est_outlaws){ outlaws = exterieur; adversaire = domicile; }
+
+  if(outlaws){
+    // Cas normal : Outlaws identifié (à domicile ou à l'extérieur), toujours
+    // affiché à gauche avec le logo du club.
+    homeCrest.innerHTML = '<img src="img/primary.png" alt="Outlaws">';
+    homeName.textContent = 'Outlaws Moreuil';
+    homeName.classList.remove('opponent');
+    document.getElementById('scoreHome').textContent = outlaws.score;
+    document.getElementById('scoreAway').textContent = adversaire.score;
+    awayName.textContent = adversaire.nom || 'Adversaire';
+    awayName.classList.add('opponent');
+    awayCrest.className = 'team-crest generic';
+    awayCrest.textContent = (adversaire.abbr || adversaire.nom || '??').slice(0,3).toUpperCase();
+  } else {
+    // Aucune des deux équipes n'est Outlaws (mauvais match affiché, ou test
+    // avec des données extérieures) : affichage neutre, sans forcer le logo
+    // du club sur une équipe qui n'est pas la nôtre.
+    homeCrest.className = 'team-crest generic';
+    homeCrest.textContent = (domicile.abbr || domicile.nom || '??').slice(0,3).toUpperCase();
+    homeName.textContent = domicile.nom || 'Domicile';
+    homeName.classList.remove('opponent');
+    document.getElementById('scoreHome').textContent = domicile.score;
+    document.getElementById('scoreAway').textContent = exterieur.score;
+    awayName.textContent = exterieur.nom || 'Extérieur';
+    awayName.classList.add('opponent');
+    awayCrest.className = 'team-crest generic';
+    awayCrest.textContent = (exterieur.abbr || exterieur.nom || '??').slice(0,3).toUpperCase();
+  }
 
   const meta = [categorie, journee].filter(Boolean).join(' — ');
   const metaFull = [meta, lieu].filter(Boolean).join(' · ');
@@ -664,6 +700,14 @@ function updateLiveBadge(statut, majA){
 }
 
 function setStatusTag(text, ok){
+  const footer = document.getElementById('footerStatus');
+  if(DATA_MODE === 'firebase'){
+    footer.textContent = ok
+      ? 'OUTLAWS-MOREUIL.FR · DONNÉES EN DIRECT VIA ROLSKANET'
+      : 'OUTLAWS-MOREUIL.FR · EN ATTENTE DE DONNÉES';
+  } else {
+    footer.textContent = 'OUTLAWS-MOREUIL.FR · PAGE DE TEST — DONNÉES SIMULÉES, NON CONNECTÉE À ROLSKANET';
+  }
   const tag = document.getElementById('simTag');
   tag.textContent = text;
   tag.style.borderColor = ok ? 'rgba(0,173,233,0.4)' : '';
