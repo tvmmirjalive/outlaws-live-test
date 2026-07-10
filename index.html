@@ -540,6 +540,24 @@ function fmtClock(totalSeconds){
 
 /* ---------- Rendu commun (utilisé par les deux modes) ---------- */
 
+function setCrest(el, logoUrl, fallbackText){
+  if(logoUrl){
+    el.className = 'team-crest';
+    const safeUrl = logoUrl.replace(/"/g, '&quot;');
+    const safeAlt = (fallbackText || '').replace(/"/g, '&quot;');
+    el.innerHTML = `<img src="${safeUrl}" alt="${safeAlt}">`;
+    // Repli automatique sur les initiales si l'image ne charge pas (logo
+    // absent, hébergement qui bloque le hotlink, etc.)
+    el.querySelector('img').addEventListener('error', () => {
+      el.className = 'team-crest generic';
+      el.textContent = fallbackText;
+    }, { once: true });
+  } else {
+    el.className = 'team-crest generic';
+    el.textContent = fallbackText;
+  }
+}
+
 function renderScoreboard({ domicile, exterieur, statut, periode, journee, categorie, lieu }){
   // Outlaws n'est pas toujours l'équipe "domicile" côté rolskanet (elle peut
   // jouer à l'extérieur) — on se base donc sur l'indicateur est_outlaws de
@@ -556,7 +574,9 @@ function renderScoreboard({ domicile, exterieur, statut, periode, journee, categ
 
   if(outlaws){
     // Cas normal : Outlaws identifié (à domicile ou à l'extérieur), toujours
-    // affiché à gauche avec le logo du club.
+    // affiché à gauche avec le logo local du club (plus fiable qu'une image
+    // externe, et à notre charte graphique).
+    homeCrest.className = 'team-crest';
     homeCrest.innerHTML = '<img src="img/primary.png" alt="Outlaws">';
     homeName.textContent = 'Outlaws Moreuil';
     homeName.classList.remove('opponent');
@@ -564,22 +584,19 @@ function renderScoreboard({ domicile, exterieur, statut, periode, journee, categ
     document.getElementById('scoreAway').textContent = adversaire.score;
     awayName.textContent = adversaire.nom || 'Adversaire';
     awayName.classList.add('opponent');
-    awayCrest.className = 'team-crest generic';
-    awayCrest.textContent = (adversaire.abbr || adversaire.nom || '??').slice(0,3).toUpperCase();
+    setCrest(awayCrest, adversaire.logo, (adversaire.abbr || adversaire.nom || '??').slice(0,3).toUpperCase());
   } else {
     // Aucune des deux équipes n'est Outlaws (mauvais match affiché, ou test
-    // avec des données extérieures) : affichage neutre, sans forcer le logo
-    // du club sur une équipe qui n'est pas la nôtre.
-    homeCrest.className = 'team-crest generic';
-    homeCrest.textContent = (domicile.abbr || domicile.nom || '??').slice(0,3).toUpperCase();
+    // avec des données extérieures) : affichage neutre, avec les vrais logos
+    // des deux équipes si disponibles, sans forcer la marque du club.
     homeName.textContent = domicile.nom || 'Domicile';
     homeName.classList.remove('opponent');
     document.getElementById('scoreHome').textContent = domicile.score;
     document.getElementById('scoreAway').textContent = exterieur.score;
     awayName.textContent = exterieur.nom || 'Extérieur';
     awayName.classList.add('opponent');
-    awayCrest.className = 'team-crest generic';
-    awayCrest.textContent = (exterieur.abbr || exterieur.nom || '??').slice(0,3).toUpperCase();
+    setCrest(homeCrest, domicile.logo, (domicile.abbr || domicile.nom || '??').slice(0,3).toUpperCase());
+    setCrest(awayCrest, exterieur.logo, (exterieur.abbr || exterieur.nom || '??').slice(0,3).toUpperCase());
   }
 
   const meta = [categorie, journee].filter(Boolean).join(' — ');
@@ -587,6 +604,7 @@ function renderScoreboard({ domicile, exterieur, statut, periode, journee, categ
   document.querySelector('.match-meta').innerHTML = metaFull
     ? metaFull.replace(lieu || '\u0000', `<b>${lieu}</b>`)
     : '';
+
 
   const clockEl = document.getElementById('clock');
   if(statut === 'À venir'){ clockEl.textContent = 'À venir'; }
